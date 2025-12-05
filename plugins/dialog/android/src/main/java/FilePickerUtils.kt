@@ -4,16 +4,15 @@
 
 package app.tauri.dialog
 
-
 import android.content.ContentUris
-import android.database.Cursor
-import android.provider.MediaStore
 import android.content.Context
+import android.database.Cursor
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Base64
 import app.tauri.Logger
@@ -38,18 +37,22 @@ class FilePickerUtils {
           }
         } else if (isDownloadsDocument(uri)) {
           val id = DocumentsContract.getDocumentId(uri)
-          val contentUri = ContentUris.withAppendedId(
-            Uri.parse("content://downloads/public_downloads"), java.lang.Long.valueOf(id))
+          val contentUri =
+                  ContentUris.withAppendedId(
+                          Uri.parse("content://downloads/public_downloads"),
+                          java.lang.Long.valueOf(id)
+                  )
           return getDataColumn(context, contentUri, null, null)
         } else if (isMediaDocument(uri)) {
           val docId = DocumentsContract.getDocumentId(uri)
           val split = docId.split(":")
-          val contentUri: Uri? = when (split[0]) {
-            "image" -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-            "video" -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            "audio" -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-            else -> null
-          }
+          val contentUri: Uri? =
+                  when (split[0]) {
+                    "image" -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                    "video" -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                    "audio" -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                    else -> null
+                  }
           val selection = "_id=?"
           val selectionArgs = arrayOf(split[1])
           return getDataColumn(context, contentUri, selection, selectionArgs)
@@ -65,8 +68,7 @@ class FilePickerUtils {
     fun getNameFromUri(context: Context, uri: Uri): String? {
       var displayName: String? = ""
       val projection = arrayOf(OpenableColumns.DISPLAY_NAME)
-      val cursor =
-        context.contentResolver.query(uri, projection, null, null, null)
+      val cursor = context.contentResolver.query(uri, projection, null, null, null)
       if (cursor != null) {
         cursor.moveToFirst()
         val columnIdx = cursor.getColumnIndex(projection[0])
@@ -99,12 +101,10 @@ class FilePickerUtils {
     fun getModifiedAtFromUri(context: Context, uri: Uri): Long? {
       return try {
         var modifiedAt: Long = 0
-        val cursor =
-          context.contentResolver.query(uri, null, null, null, null)
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
         if (cursor != null) {
           cursor.moveToFirst()
-          val columnIdx =
-            cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+          val columnIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
           modifiedAt = cursor.getLong(columnIdx)
           cursor.close()
         }
@@ -118,8 +118,7 @@ class FilePickerUtils {
     fun getSizeFromUri(context: Context, uri: Uri): Long {
       var size: Long = 0
       val projection = arrayOf(OpenableColumns.SIZE)
-      val cursor =
-        context.contentResolver.query(uri, projection, null, null, null)
+      val cursor = context.contentResolver.query(uri, projection, null, null, null)
       if (cursor != null) {
         cursor.moveToFirst()
         val columnIdx = cursor.getColumnIndex(projection[0])
@@ -144,17 +143,13 @@ class FilePickerUtils {
       }
       return null
     }
-    
+
     fun getHeightAndWidthFromUri(context: Context, uri: Uri): FileResolution? {
       if (isImageUri(context, uri)) {
         val options = BitmapFactory.Options()
         options.inJustDecodeBounds = true
         return try {
-          BitmapFactory.decodeStream(
-            context.contentResolver.openInputStream(uri),
-            null,
-            options
-          )
+          BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri), null, options)
           FileResolution(options.outHeight, options.outWidth)
         } catch (exception: FileNotFoundException) {
           exception.printStackTrace()
@@ -164,9 +159,15 @@ class FilePickerUtils {
         val retriever = MediaMetadataRetriever()
         retriever.setDataSource(context, uri)
         val width =
-          Integer.valueOf(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH) ?: "0")
+                Integer.valueOf(
+                        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                                ?: "0"
+                )
         val height =
-          Integer.valueOf(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT) ?: "0")
+                Integer.valueOf(
+                        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                                ?: "0"
+                )
         try {
           retriever.release()
         } catch (e: Exception) {
@@ -186,7 +187,7 @@ class FilePickerUtils {
       val mimeType = getMimeTypeFromUri(context, uri) ?: return false
       return mimeType.startsWith("video")
     }
-    
+
     @Throws(IOException::class)
     private fun getBytesFromInputStream(`is`: InputStream): ByteArray {
       val os = ByteArrayOutputStream()
@@ -198,10 +199,31 @@ class FilePickerUtils {
       }
       return os.toByteArray()
     }
+
+    private fun isTreeUri(uri: Uri): Boolean {
+      return DocumentsContract.isTreeUri(uri)
+    }
+
+    fun getTreePathFromUri(context: Context, uri: Uri): String? {
+      if (!isTreeUri(uri)) return null
+
+      val docId = DocumentsContract.getTreeDocumentId(uri)
+      val split = docId.split(":")
+      return if ("primary".equals(split[0], ignoreCase = true)) {
+        "${Environment.getExternalStorageDirectory()}/${split[1]}"
+      } else {
+        null
+      }
+    }
   }
 }
 
-private fun getDataColumn(context: Context, uri: Uri?, selection: String?, selectionArgs: Array<String>?): String? {
+private fun getDataColumn(
+        context: Context,
+        uri: Uri?,
+        selection: String?,
+        selectionArgs: Array<String>?
+): String? {
   var cursor: Cursor? = null
   val column = "_data"
   val projection = arrayOf(column)
